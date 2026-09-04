@@ -11,7 +11,9 @@ export class NetworkEngine {
 
   public setProfile(profile: NetworkProfile): void {
     this.currentProfile = profile;
-    console.log(`[Lintron Engine] 🌐 Profile: ${profile.name} (${Math.round(profile.speed / 1024)} KB/s, ${profile.latency}ms)`);
+    const modeName = (profile as any).mode || profile.name;
+    this.isOffline = modeName === 'Offline' || profile.speed === 0;
+    console.log(`[Lintron Engine] 🌐 Profile: ${profile.name} (${Math.round(profile.speed / 1024)} KB/s, ${profile.latency}ms) [Offline: ${this.isOffline}]`);
   }
 
   public setOffline(offline: boolean): void {
@@ -29,7 +31,7 @@ export class NetworkEngine {
   }
 
   public getIsOffline(): boolean {
-    return this.isOffline;
+    return this.isOffline || this.currentProfile.speed === 0 || (this.currentProfile as any).mode === 'Offline' || this.currentProfile.name === 'Offline';
   }
 
   /**
@@ -37,7 +39,7 @@ export class NetworkEngine {
    * Throws TypeError('Network request failed') if offline or packet dropped.
    */
   public async applyThrottling(payloadBytes: number = 1024): Promise<void> {
-    if (this.isOffline || this.currentProfile.speed === 0) {
+    if (this.getIsOffline()) {
       throw new TypeError('Network request failed');
     }
 

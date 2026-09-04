@@ -13,7 +13,9 @@ class NetworkEngine {
     }
     setProfile(profile) {
         this.currentProfile = profile;
-        console.log(`[Lintron Engine] 🌐 Profile: ${profile.name} (${Math.round(profile.speed / 1024)} KB/s, ${profile.latency}ms)`);
+        const modeName = profile.mode || profile.name;
+        this.isOffline = modeName === 'Offline' || profile.speed === 0;
+        console.log(`[Lintron Engine] 🌐 Profile: ${profile.name} (${Math.round(profile.speed / 1024)} KB/s, ${profile.latency}ms) [Offline: ${this.isOffline}]`);
     }
     setOffline(offline) {
         this.isOffline = offline;
@@ -27,14 +29,14 @@ class NetworkEngine {
         return this.currentProfile;
     }
     getIsOffline() {
-        return this.isOffline;
+        return this.isOffline || this.currentProfile.speed === 0 || this.currentProfile.mode === 'Offline' || this.currentProfile.name === 'Offline';
     }
     /**
      * Applies artificial network delay based on current profile and payload size.
      * Throws TypeError('Network request failed') if offline or packet dropped.
      */
     async applyThrottling(payloadBytes = 1024) {
-        if (this.isOffline || this.currentProfile.speed === 0) {
+        if (this.getIsOffline()) {
             throw new TypeError('Network request failed');
         }
         // Packet Loss Simulation
