@@ -558,14 +558,24 @@ if (ipcMain) {
         return { success: true, isBreakpointEnabled };
     });
 
+    ipcMain.handle('set-breakpoint-rule', (event, rule) => {
+        if (wsServer) {
+            wsServer.broadcast({
+                type: 'SET_BREAKPOINT_RULE',
+                payload: rule
+            });
+        }
+        return { success: true, rule };
+    });
+
     ipcMain.handle('resolve-breakpoint', (event, payload) => {
-        const { id, action, modifiedBody } = payload || {};
+        const { id, action, modifiedBody, mockStatus, mockBody } = payload || {};
         const pending = pendingBreakpoints.get(id);
         if (pending) {
-            pending.resolve({ action, modifiedBody });
+            pending.resolve({ action, modifiedBody, mockStatus, mockBody });
             return { success: true };
         }
-        if (wsServer && wsServer.resolveBreakpoint(id, action, modifiedBody)) {
+        if (wsServer && wsServer.resolveBreakpoint(id, action, modifiedBody, mockStatus, mockBody)) {
             return { success: true };
         }
         return { success: false, reason: 'Breakpoint not found' };

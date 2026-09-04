@@ -59,7 +59,7 @@ export function setupFetchInterceptor(client: any): void {
     }
 
     // Check Breakpoints
-    if (client.getIsBreakpointEnabled() && (method === 'POST' || method === 'PUT' || method === 'PATCH' || bodyStr)) {
+    if (client.shouldIntercept(method, url)) {
       const bpId = `bp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
       const bpResolution = await client.requestBreakpointResolution({
         id: bpId,
@@ -72,6 +72,41 @@ export function setupFetchInterceptor(client: any): void {
 
       if (bpResolution.action === 'abort') {
         throw new TypeError('Network request aborted by Lintron Breakpoint');
+      }
+
+      if (bpResolution.action === 'mock') {
+        const mockStatus = bpResolution.mockStatus || 200;
+        const mockBody = bpResolution.mockBody || '{}';
+        const mockHeaders = new Headers({
+          'content-type': 'application/json',
+          'x-powered-by': 'Lintron-Mock',
+        });
+
+        const mockResponse = new Response(mockBody, {
+          status: mockStatus,
+          statusText: mockStatus === 200 ? 'OK' : 'Mocked Response',
+          headers: mockHeaders,
+        });
+
+        const logEntry: RequestLogEntry = {
+          id: bpId,
+          time: new Date().toLocaleTimeString(),
+          method,
+          url,
+          host: 'mocked',
+          port: 0,
+          status: `${mockStatus} Mocked by Lintron`,
+          statusCode: mockStatus,
+          headers,
+          body: bodyStr,
+          responseBody: mockBody,
+          curl,
+          durationMs: Date.now() - startTime,
+          sizeBytes: mockBody.length,
+        };
+        client.sendLogRequest(logEntry);
+
+        return mockResponse;
       }
 
       if (bpResolution.action === 'forward' && bpResolution.modifiedBody !== undefined) {

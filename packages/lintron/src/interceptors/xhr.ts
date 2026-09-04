@@ -147,7 +147,7 @@ export function setupXhrInterceptor(client: any): void {
       });
 
       // Check Breakpoint
-      if (client.getIsBreakpointEnabled() && (method === 'POST' || method === 'PUT' || method === 'PATCH' || bodyStr)) {
+      if (client.shouldIntercept(method, url)) {
         client.requestBreakpointResolution({
           id: this._lintronMeta.id,
           method,
@@ -159,6 +159,24 @@ export function setupXhrInterceptor(client: any): void {
           if (res.action === 'abort') {
             try {
               super.abort();
+            } catch (e) {}
+            return;
+          }
+
+          if (res.action === 'mock') {
+            const mockStatus = res.mockStatus || 200;
+            const mockBody = res.mockBody || '{}';
+
+            try {
+              Object.defineProperty(this, 'status', { value: mockStatus, writable: true });
+              Object.defineProperty(this, 'statusText', { value: mockStatus === 200 ? 'OK' : 'Mocked', writable: true });
+              Object.defineProperty(this, 'responseText', { value: mockBody, writable: true });
+              Object.defineProperty(this, 'response', { value: mockBody, writable: true });
+              Object.defineProperty(this, 'readyState', { value: 4, writable: true });
+
+              this.dispatchEvent(new Event('readystatechange'));
+              this.dispatchEvent(new Event('load'));
+              this.dispatchEvent(new Event('loadend'));
             } catch (e) {}
             return;
           }

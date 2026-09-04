@@ -98,12 +98,12 @@ class LintronWsServer {
         }
     }
 
-    resolveBreakpoint(id, action, modifiedBody) {
+    resolveBreakpoint(id, action, modifiedBody, mockStatus, mockBody) {
         const entry = this.pendingBreakpoints.get(id);
         if (entry && entry.ws) {
             this.send(entry.ws, {
                 type: 'BREAKPOINT_RESOLVED',
-                payload: { id, action, modifiedBody }
+                payload: { id, action, modifiedBody, mockStatus, mockBody }
             });
             this.pendingBreakpoints.delete(id);
             return true;

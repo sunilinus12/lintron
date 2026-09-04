@@ -11,6 +11,7 @@ export class LintronClient {
   private ws: any = null;
   private isConnected: boolean = false;
   private isBreakpointEnabled: boolean = false;
+  private breakpointRule: BreakpointRule = { enabled: false, urlPattern: '', method: 'ALL' };
   private pendingBreakpoints = new Map<string, (res: BreakpointResolution) => void>();
 
   constructor(config: LintronConfig = {}) {
@@ -121,15 +122,30 @@ export class LintronClient {
         }
 
         case 'SET_BREAKPOINT_ENABLED': {
-          this.isBreakpointEnabled = data.payload.isBreakpointEnabled;
+          this.isBreakpointEnabled = !!data.payload?.isBreakpointEnabled;
+          if (data.payload?.rule) {
+            this.breakpointRule = data.payload.rule;
+          }
+          break;
+        }
+
+        case 'SET_BREAKPOINT_RULE': {
+          if (data.payload) {
+            this.breakpointRule = {
+              enabled: data.payload.enabled !== undefined ? data.payload.enabled : true,
+              urlPattern: data.payload.urlPattern || '',
+              method: data.payload.method || 'ALL',
+            };
+            this.isBreakpointEnabled = this.breakpointRule.enabled;
+          }
           break;
         }
 
         case 'BREAKPOINT_RESOLVED': {
-          const { id, action, modifiedBody } = data.payload;
+          const { id, action, modifiedBody, mockStatus, mockBody } = data.payload;
           const resolver = this.pendingBreakpoints.get(id);
           if (resolver) {
-            resolver({ id, action, modifiedBody });
+            resolver({ id, action, modifiedBody, mockStatus, mockBody });
             this.pendingBreakpoints.delete(id);
           }
           break;
@@ -149,6 +165,20 @@ export class LintronClient {
 
   public getIsBreakpointEnabled(): boolean {
     return this.isBreakpointEnabled;
+  }
+
+  public shouldIntercept(method: string, url: string): boolean {
+    if (!this.isBreakpointEnabled && !this.breakpointRule.enabled) return false;
+
+    if (this.breakpointRule.method && this.breakpointRule.method !== 'ALL' && this.breakpointRule.method.toUpperCase() !== method.toUpperCase()) {
+      return false;
+    }
+
+    if (this.breakpointRule.urlPattern && this.breakpointRule.urlPattern.trim() !== '') {
+      return url.toLowerCase().includes(this.breakpointRule.urlPattern.trim().toLowerCase());
+    }
+
+    return true;
   }
 
   public requestBreakpointResolution(req: InterceptedRequest): Promise<BreakpointResolution> {

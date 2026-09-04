@@ -12,6 +12,12 @@ export interface NetworkProfile {
   latency: number; // milliseconds
 }
 
+export interface BreakpointRule {
+  enabled: boolean;
+  urlPattern?: string; // Substring filter e.g. '/api/' or '*'
+  method?: string; // 'ALL', 'POST', 'GET', 'PUT', 'DELETE'
+}
+
 export interface InterceptedRequest {
   id: string;
   method: string;
@@ -23,8 +29,10 @@ export interface InterceptedRequest {
 
 export interface BreakpointResolution {
   id: string;
-  action: 'forward' | 'abort';
+  action: 'forward' | 'abort' | 'mock';
   modifiedBody?: string;
+  mockStatus?: number;
+  mockBody?: string;
 }
 
 export interface RequestLogEntry {
