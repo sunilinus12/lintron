@@ -1,0 +1,27 @@
+{
+  "name": "lintron",
+  "version": "1.0.0",
+  "description": "Next-Gen Network Debugger & Chaos Engineering Tool for React Native and Expo",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "network",
+    "debugger",
+    "throttling",
+    "chaos",
+    "intercept",
+    "mocking"
+  ],
+  "author": "Sunil Linus",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

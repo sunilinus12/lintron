@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lintron - Next-Gen Network & App Debugger</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --bg-card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-blue-hover: #0284c7;
+            --accent-green: #22c55e;
+            --accent-orange: #f97316;
+            --accent-red: #ef4444;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.12) 0px, transparent 50%);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 1.25rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: #0f172a;
+            font-size: 16px;
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+        }
+
+        .brand-title {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #ffffff, #cbd5e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--bg-card-border);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-orange);
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .dot.online { background: var(--accent-green); }
+        .dot.offline { background: var(--accent-red); }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .main-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .main-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .card-disabled {
+            opacity: 0.4;
+            pointer-events: none;
+            filter: grayscale(0.5);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.85rem;
+        }
+
+        .card-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        /* Device Select dropdown styling */
+        .select-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        select.device-dropdown {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--bg-card-border);
+            color: var(--text-primary);
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        select.device-dropdown:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+        }
+
+        .btn-icon {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--bg-card-border);
+            color: var(--text-secondary);
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-icon:hover {
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(30, 41, 59, 0.9);
+        }
+
+        /* Metrics grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .metric-box {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--radius-md);
+            padding: 10px 12px;
+            text-align: center;
+        }
+
+        .metric-val {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent-blue);
+            margin-bottom: 2px;
+        }
+
+        .metric-lbl {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        /* Profile pills */
+        .grid-profiles {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .btn-profile {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--bg-card-border);
+            color: var(--text-primary);
+            padding: 12px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-profile span.sub {
+            font-size: 10px;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        .btn-profile:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .btn-profile.active {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.2));
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.15);
+        }
+
+        .btn-profile.active span.sub {
+            color: var(--accent-blue);
+        }
+
+        /* Main action button */
+        .btn-main {
+            width: 100%;
+            padding: 14px;
+            border-radius: var(--radius-md);
+            border: none;
+            background: linear-gradient(135deg, #0284c7, #38bdf8);
+            color: #0f172a;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px rgba(56, 189, 248, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-main:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 24px rgba(56, 189, 248, 0.4);
+        }
+
+        .btn-main.active {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white;
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Custom Config Accordion Drawer */
+        .custom-drawer {
+            display: none;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            margin-top: 10px;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .custom-drawer.open {
+            display: flex;
+        }
+
+        .range-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .range-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent-blue);
+            cursor: pointer;
+        }
+
+        /* Request Feed Table Widget */
+        .feed-container {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--radius-md);
+            height: 120px;
+            overflow-y: auto;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 11px;
+            padding: 4px;
+        }
+
+        .feed-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .feed-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .feed-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: var(--radius-sm);
+            transition: all 0.15s;
+        }
+
+        .feed-row:hover {
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--text-primary);
+        }
+
+        .feed-row .host { color: var(--text-primary); font-weight: 500; }
+        .feed-row .status { color: var(--accent-green); }
+
+        /* Inspector Modal */
+        .inspector-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+
+        .inspector-modal.open {
+            display: flex;
+        }
+
+        .inspector-content {
+            background: #1e293b;
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 560px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .inspector-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            background: rgba(15, 23, 42, 0.6);
+            border-bottom: 1px solid var(--bg-card-border);
+        }
+
+        .method-badge {
+            background: var(--accent-blue);
+            color: #0f172a;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .inspector-url-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 320px;
+        }
+
+        .btn-copy {
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            border: none;
+            color: #0f172a;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-copy:hover {
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+
+        .btn-close:hover { color: var(--text-primary); }
+
+        .inspector-tabs {
+            display: flex;
+            gap: 2px;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 4px 12px 0 12px;
+            border-bottom: 1px solid var(--bg-card-border);
+        }
+
+        .inspector-tab {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .inspector-tab.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+        }
+
+        .inspector-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px;
+        }
+
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        .inspector-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+        }
+
+        .inspector-table td {
+            padding: 6px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            vertical-align: top;
+        }
+
+        .inspector-table td.key {
+            color: var(--accent-blue);
+            font-weight: 600;
+            width: 35%;
+        }
+
+        .inspector-table td.val {
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        pre.code-view, textarea.code-editor {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--bg-card-border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            color: #38bdf8;
+            white-space: pre-wrap;
+            word-break: break-all;
+            width: 100%;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        textarea.code-editor {
+            height: 180px;
+            resize: vertical;
+        }
+
+        textarea.code-editor:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+        }
+
+        /* Pulse Badge */
+        .pulse-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #38bdf8;
+            color: #0f172a;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 13px;
+            box-shadow: 0 10px 30px rgba(56, 189, 248, 0.4);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 200;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .footer-note {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Bar -->
+    <div class="header">
+        <div class="brand">
+            <div class="brand-icon">LT</div>
+            <div class="brand-title">Lintron</div>
+        </div>
+        <div class="status-badge">
+            <span id="status-dot" class="dot"></span>
+            <span id="conn-status">Checking Status...</span>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Target Emulator Select Card -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Target Device & Emulator</span>
+                <span style="font-size: 11px; color: var(--text-secondary);" id="device-count">Detecting...</span>
+            </div>
+            <div class="select-group">
+                <select id="device-select" class="device-dropdown" onchange="onDeviceChanged()">
+                    <option value="">Scanning ADB Devices...</option>
+                </select>
+                <button class="btn-icon" onclick="refreshDevices()" title="Refresh Connected Devices">🔄</button>
+            </div>
+        </div>
+
+        <!-- Master Control Switches Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <button id="btn-toggle-internet" class="btn-main" style="background: linear-gradient(135deg, #10b981, #059669); color: white;" onclick="toggleInternet()">
+                <span>🌐 Internet: ON</span>
+            </button>
+            <button id="btn-toggle-proxy" class="btn-main" onclick="toggleProxy()">
+                <span>⚡ Enable Proxy</span>
+            </button>
+            <button id="btn-toggle-bp" class="btn-main" style="background: rgba(30, 41, 59, 0.8); color: var(--text-primary); border: 1px solid var(--bg-card-border);" onclick="toggleBreakpoints()">
+                <span>🎯 Breakpoints: OFF</span>
+            </button>
+        </div>
+
+        <!-- Telemetry Stats Card -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Telemetry & Real-Time Stats</span>
+            </div>
+            <div class="metrics-grid">
+                <div class="metric-box">
+                    <div class="metric-val" id="metric-sockets">0</div>
+                    <div class="metric-lbl">Active Sockets</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-val" id="metric-requests">0</div>
+                    <div class="metric-lbl">Requests</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-val" id="metric-data">0 MB</div>
+                    <div class="metric-lbl">Data Processed</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Selection Card -->
+        <div class="card" id="profile-card">
+            <div class="card-header">
+                <span class="card-title">Throttling Profile</span>
+                <span style="font-size: 12px; color: var(--accent-blue);" id="active-profile-info">Profile: Good (0ms)</span>
+            </div>
+
+            <div id="internet-off-banner" style="display:none; color: var(--accent-red); font-size: 12px; margin-bottom: 10px; font-weight: 600; background: rgba(239, 68, 68, 0.1); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid rgba(239, 68, 68, 0.2);">
+                ⚠️ Internet Switch is OFF. Enable Device Internet above to use network throttling profiles.
+            </div>
+
+            <div class="grid-profiles">
+                <button class="btn-profile" onclick="selectPreset('1G')">1G <span class="sub">1.2 KB/s | 1s</span></button>
+                <button class="btn-profile" onclick="selectPreset('2G')">2G <span class="sub">31 KB/s | 400ms</span></button>
+                <button class="btn-profile" onclick="selectPreset('3G')">3G <span class="sub">187 KB/s | 150ms</span></button>
+                <button class="btn-profile" onclick="selectPreset('4G')">4G <span class="sub">3.1 MB/s | 40ms</span></button>
+                <button class="btn-profile" onclick="selectPreset('5G')">5G <span class="sub">18.7 MB/s | 15ms</span></button>
+                <button class="btn-profile active" onclick="selectPreset('Good')">Good <span class="sub">Unlimited | 0ms</span></button>
+                <button class="btn-profile" onclick="selectPreset('Bad')">Bad <span class="sub">5 KB/s | 800ms</span></button>
+                <button class="btn-profile" onclick="selectPreset('Metro')">🚇 Metro <span class="sub">Subway Tunnel</span></button>
+                <button class="btn-profile" onclick="selectPreset('Blackout')">📡 Blackout <span class="sub">Auto Disconnect</span></button>
+                <button class="btn-profile" onclick="toggleCustomDrawer()">Custom <span class="sub">Custom Limits</span></button>
+            </div>
+
+            <!-- Custom Config Drawer -->
+            <div id="custom-drawer" class="custom-drawer">
+                <div class="range-group">
+                    <div class="range-label">
+                        <span>Artificial Latency</span>
+                        <strong id="custom-latency-val">150 ms</strong>
+                    </div>
+                    <input type="range" id="custom-latency" min="0" max="2000" step="10" value="150" oninput="updateCustomValues()">
+                </div>
+                <div class="range-group">
+                    <div class="range-label">
+                        <span>Max Bandwidth Speed</span>
+                        <strong id="custom-speed-val">500 KB/s</strong>
+                    </div>
+                    <input type="range" id="custom-speed" min="10" max="20000" step="50" value="500" oninput="updateCustomValues()">
+                </div>
+                <button class="btn-profile active" style="margin-top: 4px; padding: 8px;" onclick="applyCustomProfile()">Apply Custom Settings</button>
+            </div>
+        </div>
+
+        <!-- Live Intercept Log Card -->
+        <div class="card" style="margin-bottom: 0;">
+            <div class="card-header">
+                <span class="card-title">Live Intercept Feed</span>
+                <span style="font-size: 11px; color: var(--text-secondary);">Click any request to inspect headers & cURL</span>
+            </div>
+            <div class="feed-container" id="feed-container">
+                <div class="feed-row"><span>Ready...</span><span>0.0.0.0:8080</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Request Inspector Modal / Drawer -->
+    <div id="inspector-modal" class="inspector-modal">
+        <div class="inspector-content">
+            <div class="inspector-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="inspector-method" class="method-badge">GET</span>
+                    <span id="inspector-url" class="inspector-url-title">https://api.example.com</span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button class="btn-copy" onclick="copyCurlCommand()">📋 Copy cURL</button>
+                    <button class="btn-close" onclick="closeInspector()">✕</button>
+                </div>
+            </div>
+
+            <div class="inspector-tabs">
+                <button class="inspector-tab active" onclick="switchInspectorTab('headers')">Headers</button>
+                <button class="inspector-tab" onclick="switchInspectorTab('body')">Payload / Body</button>
+                <button class="inspector-tab" onclick="switchInspectorTab('curl')">cURL Command</button>
+            </div>
+
+            <div class="inspector-body">
+                <div id="tab-headers" class="tab-pane active">
+                    <table class="inspector-table" id="headers-table"></table>
+                </div>
+                <div id="tab-body" class="tab-pane">
+                    <pre class="code-view" id="body-view"></pre>
+                </div>
+                <div id="tab-curl" class="tab-pane">
+                    <pre class="code-view" id="curl-view"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Breakpoint Interceptor Modal -->
+    <div id="breakpoint-modal" class="inspector-modal">
+        <div class="inspector-content" style="border-color: rgba(239, 68, 68, 0.4);">
+            <div class="inspector-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="bp-method" class="method-badge" style="background: #ef4444; color: white;">POST</span>
+                    <span id="bp-url" class="inspector-url-title">https://api.example.com/v1/data</span>
+                </div>
+                <span class="pulse-badge">⏸️ BREAKPOINT PAUSED</span>
+            </div>
+
+            <div style="padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary);">
+                    <span>Edit Request Body Payload Before Forwarding:</span>
+                    <span id="bp-time" style="color: var(--accent-blue);">00:00:00</span>
+                </div>
+
+                <textarea id="bp-body-editor" class="code-editor" placeholder="Enter modified JSON or text payload..."></textarea>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
+                    <button class="btn-main" style="background: linear-gradient(135deg, #dc2626, #ef4444); color: white; width: auto; padding: 10px 18px;" onclick="resolveBreakpoint('abort')">
+                        ❌ Abort Request
+                    </button>
+                    <button class="btn-main" style="background: linear-gradient(135deg, #10b981, #059669); color: white; width: auto; padding: 10px 18px;" onclick="resolveBreakpoint('forward')">
+                        ▶️ Forward (Modified Body)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">📋 cURL Copied to Clipboard!</div>
+
+    <div class="footer-note" id="log-status">
+        Lintron Proxy Server Listening on 8080
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        let isProxyEnabled = false;
+        let isInternetEnabled = true;
+        let isBreakpointEnabled = false;
+        let selectedDeviceId = 'all';
+        let cachedLogs = [];
+        let selectedRequest = null;
+        let currentBpId = null;
+
+        async function init() {
+            await refreshDevices();
+            await pollTelemetry();
+            setInterval(pollTelemetry, 1500);
+
+            // Listen for Breakpoint Intercepted Event
+            ipcRenderer.on('breakpoint-intercepted', (event, data) => {
+                onBreakpointIntercepted(data);
+            });
+        }
+
+        async function refreshDevices() {
+            const devices = await ipcRenderer.invoke('get-devices');
+            const select = document.getElementById('device-select');
+            const countLbl = document.getElementById('device-count');
+            
+            select.innerHTML = '';
+
+            if (devices.length === 0) {
+                countLbl.innerText = 'No Devices Detected';
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.innerText = 'No Connected Emulators Found';
+                select.appendChild(opt);
+            } else {
+                countLbl.innerText = `${devices.length} Device(s) Found`;
+                const allOpt = document.createElement('option');
+                allOpt.value = 'all';
+                allOpt.innerText = `All Connected Devices (${devices.length})`;
+                select.appendChild(allOpt);
+
+                devices.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.id;
+                    opt.innerText = `${d.name} [${d.type}]`;
+                    select.appendChild(opt);
+                });
+            }
+
+            select.value = selectedDeviceId;
+            await verifyConnection();
+        }
+
+        function onDeviceChanged() {
+            selectedDeviceId = document.getElementById('device-select').value;
+            verifyConnection();
+        }
+
+        async function verifyConnection() {
+            const res = await ipcRenderer.invoke('check-connection', selectedDeviceId);
+            const dot = document.getElementById('status-dot');
+            const status = document.getElementById('conn-status');
+            const btnProxy = document.getElementById('btn-toggle-proxy');
+            const btnNet = document.getElementById('btn-toggle-internet');
+            const btnBp = document.getElementById('btn-toggle-bp');
+            const profileCard = document.getElementById('profile-card');
+            const offBanner = document.getElementById('internet-off-banner');
+
+            isProxyEnabled = res.adbProxyEnabled;
+            if (res.isInternetEnabled !== undefined) isInternetEnabled = res.isInternetEnabled;
+            if (res.isBreakpointEnabled !== undefined) isBreakpointEnabled = res.isBreakpointEnabled;
+
+            // Master Internet Switch
+            if (isInternetEnabled) {
+                btnNet.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                btnNet.innerHTML = '<span>🌐 Internet: ON</span>';
+                profileCard.classList.remove('card-disabled');
+                offBanner.style.display = 'none';
+            } else {
+                btnNet.style.background = 'linear-gradient(135deg, #dc2626, #ef4444)';
+                btnNet.innerHTML = '<span>🚫 Internet: OFF</span>';
+                profileCard.classList.add('card-disabled');
+                offBanner.style.display = 'block';
+            }
+
+            // Proxy Toggle Switch
+            if (isProxyEnabled) {
+                btnProxy.classList.add('active');
+                btnProxy.innerHTML = '<span>🛑 Disable Proxy</span>';
+            } else {
+                btnProxy.classList.remove('active');
+                btnProxy.innerHTML = '<span>⚡ Enable Proxy</span>';
+            }
+
+            // Breakpoint Toggle Switch
+            if (isBreakpointEnabled) {
+                btnBp.style.background = 'linear-gradient(135deg, #818cf8, #6366f1)';
+                btnBp.style.color = 'white';
+                btnBp.innerHTML = '<span>🎯 Breakpoints: ON</span>';
+            } else {
+                btnBp.style.background = 'rgba(30, 41, 59, 0.8)';
+                btnBp.style.color = 'var(--text-primary)';
+                btnBp.innerHTML = '<span>🎯 Breakpoints: OFF</span>';
+            }
+
+            // Status Badge
+            if (!isInternetEnabled) {
+                dot.className = 'dot offline';
+                status.innerText = 'Device Internet OFF (Airplane Mode)';
+            } else if (res.serverAlive && res.adbProxyEnabled) {
+                dot.className = 'dot online';
+                status.innerText = 'Proxy Active & Target Routed';
+            } else if (res.serverAlive) {
+                dot.className = 'dot';
+                dot.style.background = '#f97316';
+                status.innerText = 'Proxy Standby (Direct Mode)';
+            } else {
+                dot.className = 'dot offline';
+                status.innerText = 'Proxy Offline';
+            }
+        }
+
+        async function toggleInternet() {
+            isInternetEnabled = !isInternetEnabled;
+            const success = await ipcRenderer.invoke('set-internet-state', {
+                enabled: isInternetEnabled,
+                deviceId: selectedDeviceId
+            });
+
+            if (success) {
+                await verifyConnection();
+            } else {
+                document.getElementById('log-status').innerText = 'ADB Error toggling internet state.';
+            }
+        }
+
+        async function toggleProxy() {
+            isProxyEnabled = !isProxyEnabled;
+            const success = await ipcRenderer.invoke('set-proxy', {
+                enabled: isProxyEnabled,
+                deviceId: selectedDeviceId
+            });
+
+            if (success) {
+                await verifyConnection();
+            } else {
+                document.getElementById('log-status').innerText = 'ADB Command Error: Is target device connected?';
+            }
+        }
+
+        async function toggleBreakpoints() {
+            isBreakpointEnabled = !isBreakpointEnabled;
+            const res = await ipcRenderer.invoke('set-breakpoint-state', isBreakpointEnabled);
+            if (res.success) {
+                await verifyConnection();
+                showToast(isBreakpointEnabled ? '🎯 Request Breakpoints ENABLED' : '🎯 Request Breakpoints DISABLED');
+            }
+        }
+
+        async function selectPreset(name) {
+            if (!isInternetEnabled) return;
+
+            document.getElementById('custom-drawer').classList.remove('open');
+            const res = await ipcRenderer.invoke('update-profile', {
+                profileName: name,
+                deviceId: selectedDeviceId
+            });
+            if (res.success) {
+                document.getElementById('active-profile-info').innerText = `Profile: ${name}`;
+                document.querySelectorAll('.btn-profile').forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.innerText.startsWith(name) || btn.innerText.includes(name)) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+        }
+
+        function toggleCustomDrawer() {
+            if (!isInternetEnabled) return;
+            const drawer = document.getElementById('custom-drawer');
+            drawer.classList.toggle('open');
+        }
+
+        function updateCustomValues() {
+            const lat = document.getElementById('custom-latency').value;
+            const spd = document.getElementById('custom-speed').value;
+            document.getElementById('custom-latency-val').innerText = `${lat} ms`;
+            document.getElementById('custom-speed-val').innerText = `${spd} KB/s`;
+        }
+
+        async function applyCustomProfile() {
+            if (!isInternetEnabled) return;
+
+            const lat = parseInt(document.getElementById('custom-latency').value);
+            const spdKbps = parseInt(document.getElementById('custom-speed').value);
+            const speedBytes = spdKbps * 1024;
+
+            const res = await ipcRenderer.invoke('update-profile', {
+                speed: speedBytes,
+                latency: lat,
+                mode: `Custom (${spdKbps} KB/s, ${lat}ms)`,
+                deviceId: selectedDeviceId
+            });
+
+            if (res.success) {
+                document.getElementById('active-profile-info').innerText = `Custom (${spdKbps} KB/s, ${lat}ms)`;
+                document.querySelectorAll('.btn-profile').forEach(btn => btn.classList.remove('active'));
+            }
+        }
+
+        async function pollTelemetry() {
+            const data = await ipcRenderer.invoke('get-telemetry');
+            if (!data) return;
+
+            document.getElementById('metric-sockets').innerText = data.activeSockets;
+            document.getElementById('metric-requests').innerText = data.totalRequests;
+            
+            const mb = (data.totalBytes / (1024 * 1024)).toFixed(2);
+            document.getElementById('metric-data').innerText = `${mb} MB`;
+
+            if (data.recentLogs && data.recentLogs.length > 0) {
+                cachedLogs = data.recentLogs;
+                const feed = document.getElementById('feed-container');
+                feed.innerHTML = cachedLogs.slice(0, 15).map(item => `
+                    <div class="feed-row" onclick="openInspector('${item.id}')">
+                        <span class="host">[${item.time}] ${item.method} ${item.url || (item.host + ':' + item.port)}</span>
+                        <span class="status" style="color: ${item.status.includes('PAUSED') ? '#ef4444' : '#22c55e'}">${item.status}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function openInspector(reqId) {
+            selectedRequest = cachedLogs.find(r => r.id === reqId);
+            if (!selectedRequest) return;
+
+            document.getElementById('inspector-method').innerText = selectedRequest.method || 'GET';
+            document.getElementById('inspector-url').innerText = selectedRequest.url || `${selectedRequest.host}:${selectedRequest.port}`;
+
+            // Render Headers Table
+            const headersTable = document.getElementById('headers-table');
+            headersTable.innerHTML = '';
+            if (selectedRequest.headers && Object.keys(selectedRequest.headers).length > 0) {
+                for (const [k, v] of Object.entries(selectedRequest.headers)) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td class="key">${k}</td><td class="val">${v}</td>`;
+                    headersTable.appendChild(tr);
+                }
+            } else {
+                headersTable.innerHTML = '<tr><td colspan="2" style="color:var(--text-secondary);">No HTTP headers captured</td></tr>';
+            }
+
+            // Render Body
+            const bodyView = document.getElementById('body-view');
+            if (selectedRequest.body) {
+                try {
+                    const json = JSON.parse(selectedRequest.body);
+                    bodyView.innerText = JSON.stringify(json, null, 2);
+                } catch (e) {
+                    bodyView.innerText = selectedRequest.body;
+                }
+            } else {
+                bodyView.innerText = '// No request body payload';
+            }
+
+            // Render cURL
+            document.getElementById('curl-view').innerText = selectedRequest.curl || `curl -X ${selectedRequest.method} "${selectedRequest.url || selectedRequest.host}"`;
+
+            switchInspectorTab('headers');
+            document.getElementById('inspector-modal').classList.add('open');
+        }
+
+        function closeInspector() {
+            document.getElementById('inspector-modal').classList.remove('open');
+        }
+
+        function switchInspectorTab(tabName) {
+            document.querySelectorAll('.inspector-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+            const activeTab = Array.from(document.querySelectorAll('.inspector-tab')).find(t => t.innerText.toLowerCase().includes(tabName));
+            if (activeTab) activeTab.classList.add('active');
+
+            const activePane = document.getElementById(`tab-${tabName}`);
+            if (activePane) activePane.classList.add('active');
+        }
+
+        function copyCurlCommand() {
+            if (!selectedRequest || !selectedRequest.curl) return;
+            navigator.clipboard.writeText(selectedRequest.curl);
+            showToast('📋 cURL Command Copied to Clipboard!');
+        }
+
+        /* --- Breakpoint Interceptor Logic --- */
+        function onBreakpointIntercepted(data) {
+            currentBpId = data.id;
+            document.getElementById('bp-method').innerText = data.method;
+            document.getElementById('bp-url').innerText = data.url || `${data.host}:${data.port}`;
+            document.getElementById('bp-time').innerText = new Date().toLocaleTimeString();
+
+            const editor = document.getElementById('bp-body-editor');
+            if (data.body) {
+                try {
+                    const json = JSON.parse(data.body);
+                    editor.value = JSON.stringify(json, null, 2);
+                } catch (e) {
+                    editor.value = data.body;
+                }
+            } else {
+                editor.value = '';
+            }
+
+            document.getElementById('breakpoint-modal').classList.add('open');
+        }
+
+        async function resolveBreakpoint(action) {
+            if (!currentBpId) return;
+
+            const modifiedBody = document.getElementById('bp-body-editor').value;
+            await ipcRenderer.invoke('resolve-breakpoint', {
+                id: currentBpId,
+                action: action,
+                modifiedBody: modifiedBody
+            });
+
+            document.getElementById('breakpoint-modal').classList.remove('open');
+            currentBpId = null;
+
+            showToast(action === 'forward' ? '▶️ Request Forwarded with Modified Body' : '❌ Request Aborted');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        init();
+    </script>
+</body>
+</html>

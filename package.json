@@ -1,0 +1,14 @@
+{
+  "name": "lintron-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "start:desktop": "npm run start --workspace=apps/desktop",
+    "build:lintron": "npm run build --workspace=packages/lintron",
+    "test": "echo \"Lintron Monorepo Ready\" && exit 0"
+  }
+}
