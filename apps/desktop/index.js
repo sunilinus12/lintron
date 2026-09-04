@@ -327,6 +327,19 @@ const wsServer = new LintronWsServer({
     },
     onLogRequest: (logEntry, clientInfo) => {
         logDetailedRequest(logEntry, logEntry.status || '200 OK');
+    },
+    onConsoleLog: (logPayload, clientInfo) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('app-console-log', {
+                ...logPayload,
+                appName: clientInfo?.appName || 'App'
+            });
+        }
+    },
+    onStorageData: (storagePayload, clientInfo) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('app-storage-data', storagePayload);
+        }
     }
 });
 
@@ -618,6 +631,16 @@ if (ipcMain) {
             });
         }
         return { success: true, rate: Number(rate) || 0 };
+    });
+
+    ipcMain.handle('fetch-app-storage', () => {
+        if (wsServer) wsServer.fetchStorage();
+        return { success: true };
+    });
+
+    ipcMain.handle('clear-app-storage', () => {
+        if (wsServer) wsServer.clearStorage();
+        return { success: true };
     });
 
     ipcMain.handle('get-telemetry', async () => {

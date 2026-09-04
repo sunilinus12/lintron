@@ -89,6 +89,20 @@ class LintronWsServer {
                     break;
                 }
 
+                case 'CONSOLE_LOG': {
+                    if (this.callbacks.onConsoleLog) {
+                        this.callbacks.onConsoleLog(data.payload, clientInfo);
+                    }
+                    break;
+                }
+
+                case 'STORAGE_DATA': {
+                    if (this.callbacks.onStorageData) {
+                        this.callbacks.onStorageData(data.payload, clientInfo);
+                    }
+                    break;
+                }
+
                 default: {
                     this.callbacks.onClientMessage(data, clientInfo, ws);
                 }
@@ -126,6 +140,14 @@ class LintronWsServer {
             const messageStr = typeof data === 'string' ? data : JSON.stringify(data);
             ws.send(messageStr);
         }
+    }
+
+    fetchStorage() {
+        this.broadcast({ type: 'STORAGE_FETCH' });
+    }
+
+    clearStorage() {
+        this.broadcast({ type: 'STORAGE_CLEAR' });
     }
 
     getConnectedClients() {

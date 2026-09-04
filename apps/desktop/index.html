@@ -727,14 +727,41 @@
             </div>
         </div>
 
-        <!-- Live Intercept Log Card -->
+        <!-- Live Intercept Log & App Console Card -->
         <div class="card" style="margin-bottom: 0;">
-            <div class="card-header">
-                <span class="card-title">Live Intercept Feed</span>
-                <span style="font-size: 11px; color: var(--text-secondary);">Click any request to inspect headers & cURL</span>
+            <div class="card-header" style="flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn-profile active" id="view-tab-network" style="padding: 4px 10px; font-size: 11px;" onclick="switchMainFeedTab('network')">🌐 Network</button>
+                    <button class="btn-profile" id="view-tab-console" style="padding: 4px 10px; font-size: 11px;" onclick="switchMainFeedTab('console')">📋 App Console (<span id="console-count">0</span>)</button>
+                    <button class="btn-profile" id="view-tab-storage" style="padding: 4px 10px; font-size: 11px;" onclick="switchMainFeedTab('storage')">💾 AsyncStorage</button>
+                </div>
+                <button class="btn-icon" style="font-size: 11px; padding: 2px 8px; width: auto;" onclick="clearActiveFeed()">Clear</button>
             </div>
+
+            <!-- Network Feed Container -->
             <div class="feed-container" id="feed-container">
-                <div class="feed-row"><span>Ready...</span><span>0.0.0.0:8080</span></div>
+                <div class="feed-row"><span>Ready...</span><span>Lintron Standby</span></div>
+            </div>
+
+            <!-- Console Logs Container -->
+            <div class="feed-container" id="console-container" style="display: none; font-family: monospace; font-size: 11px; max-height: 220px; overflow-y: auto;">
+                <div style="color: var(--text-secondary); text-align: center; padding: 20px;">No console logs captured yet from app...</div>
+            </div>
+
+            <!-- AsyncStorage Container -->
+            <div id="storage-container" style="display: none; padding: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 12px; color: var(--text-secondary);">App Local Storage Explorer</span>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn-profile" style="padding: 4px 8px; font-size: 10px;" onclick="refreshStorage()">🔄 Refresh</button>
+                        <button class="btn-profile" style="padding: 4px 8px; font-size: 10px; background: rgba(220,38,38,0.3); color: #fca5a5;" onclick="clearStorage()">🗑️ Clear</button>
+                    </div>
+                </div>
+                <div id="storage-table-wrapper" style="max-height: 180px; overflow-y: auto;">
+                    <table class="inspector-table" id="storage-table">
+                        <tr><td style="color: var(--text-secondary);">Click Refresh to load storage keys...</td></tr>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -1216,6 +1243,78 @@
             toast.classList.add('show');
             setTimeout(() => toast.classList.remove('show'), 2500);
         }
+
+        /* --- Multi-Tab Feed Handlers (Network / Console / Storage) --- */
+        let consoleLogs = [];
+        let activeMainTab = 'network';
+
+        function switchMainFeedTab(tab) {
+            activeMainTab = tab;
+            document.getElementById('view-tab-network').classList.toggle('active', tab === 'network');
+            document.getElementById('view-tab-console').classList.toggle('active', tab === 'console');
+            document.getElementById('view-tab-storage').classList.toggle('active', tab === 'storage');
+
+            document.getElementById('feed-container').style.display = tab === 'network' ? 'flex' : 'none';
+            document.getElementById('console-container').style.display = tab === 'console' ? 'block' : 'none';
+            document.getElementById('storage-container').style.display = tab === 'storage' ? 'block' : 'none';
+
+            if (tab === 'storage') {
+                refreshStorage();
+            }
+        }
+
+        function clearActiveFeed() {
+            if (activeMainTab === 'network') {
+                cachedLogs = [];
+                document.getElementById('feed-container').innerHTML = '<div class="feed-row"><span>Cleared</span></div>';
+            } else if (activeMainTab === 'console') {
+                consoleLogs = [];
+                document.getElementById('console-count').innerText = '0';
+                document.getElementById('console-container').innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">Cleared console logs</div>';
+            }
+        }
+
+        ipcRenderer.on('app-console-log', (event, log) => {
+            consoleLogs.unshift(log);
+            if (consoleLogs.length > 100) consoleLogs.pop();
+            document.getElementById('console-count').innerText = consoleLogs.length;
+
+            const container = document.getElementById('console-container');
+            const color = log.level === 'error' ? '#ef4444' : log.level === 'warn' ? '#f59e0b' : '#38bdf8';
+            const logHtml = consoleLogs.slice(0, 30).map(l => `
+                <div style="padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; gap: 8px;">
+                    <span style="color: var(--text-secondary); min-width: 60px;">[${l.time}]</span>
+                    <span style="color: ${color}; font-weight: bold; min-width: 50px;">[${l.level.toUpperCase()}]</span>
+                    <span style="color: var(--text-primary); word-break: break-word;">${l.message}</span>
+                </div>
+            `).join('');
+            container.innerHTML = logHtml;
+        });
+
+        async function refreshStorage() {
+            await ipcRenderer.invoke('fetch-app-storage');
+        }
+
+        async function clearStorage() {
+            if (confirm('Clear all AsyncStorage in connected app?')) {
+                await ipcRenderer.invoke('clear-app-storage');
+                showToast('🗑️ Cleared App Storage');
+            }
+        }
+
+        ipcRenderer.on('app-storage-data', (event, data) => {
+            const table = document.getElementById('storage-table');
+            if (!data.available || !data.entries || data.entries.length === 0) {
+                table.innerHTML = '<tr><td style="color: var(--text-secondary);">No storage entries found in connected app.</td></tr>';
+                return;
+            }
+            table.innerHTML = data.entries.map(e => `
+                <tr>
+                    <td class="key" style="width: 35%; font-weight: bold;">${e.key}</td>
+                    <td class="val" style="word-break: break-word;">${typeof e.value === 'string' ? e.value : JSON.stringify(e.value)}</td>
+                </tr>
+            `).join('');
+        });
 
         init();
     </script>

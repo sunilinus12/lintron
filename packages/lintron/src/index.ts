@@ -1,7 +1,9 @@
-import { LintronConfig, NetworkProfile, InterceptedRequest, BreakpointResolution, RequestLogEntry } from './types';
+import { LintronConfig, NetworkProfile, BreakpointRule, InterceptedRequest, BreakpointResolution, RequestLogEntry } from './types';
 import { networkEngine } from './throttler/network-engine';
 import { setupFetchInterceptor } from './interceptors/fetch';
 import { setupXhrInterceptor } from './interceptors/xhr';
+import { setupConsoleInterceptor } from './interceptors/console';
+import { setupStorageExplorer } from './storage/storage-explorer';
 
 export * from './types';
 export { networkEngine } from './throttler/network-engine';
@@ -157,11 +159,24 @@ export class LintronClient {
           }
           break;
         }
+
+        case 'STORAGE_FETCH': {
+          if (this.onStorageQuery) this.onStorageQuery();
+          break;
+        }
+
+        case 'STORAGE_CLEAR': {
+          if (this.onStorageClear) this.onStorageClear();
+          break;
+        }
       }
     } catch (e) {
       console.warn('[Lintron] Could not parse message:', raw);
     }
   }
+
+  public onStorageQuery?: () => void;
+  public onStorageClear?: () => void;
 
   public getIsBreakpointEnabled(): boolean {
     return this.isBreakpointEnabled;
@@ -219,6 +234,8 @@ export function initLintron(config?: LintronConfig): LintronClient {
     defaultInstance.connect();
     setupFetchInterceptor(defaultInstance);
     setupXhrInterceptor(defaultInstance);
+    setupConsoleInterceptor(defaultInstance);
+    setupStorageExplorer(defaultInstance);
   }
   return defaultInstance;
 }
