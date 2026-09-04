@@ -600,9 +600,15 @@
             <div class="brand-icon">LT</div>
             <div class="brand-title">Lintron</div>
         </div>
-        <div class="status-badge">
-            <span id="status-dot" class="dot"></span>
-            <span id="conn-status">Checking Status...</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <div class="status-badge" id="app-badge" style="border-color: rgba(56, 189, 248, 0.3);" title="React Native / Expo App Status">
+                <span id="app-dot" class="dot" style="background: #64748b;"></span>
+                <span id="app-status">App: Waiting...</span>
+            </div>
+            <div class="status-badge">
+                <span id="status-dot" class="dot"></span>
+                <span id="conn-status">Checking Status...</span>
+            </div>
         </div>
     </div>
 
@@ -1004,6 +1010,26 @@
             
             const mb = (data.totalBytes / (1024 * 1024)).toFixed(2);
             document.getElementById('metric-data').innerText = `${mb} MB`;
+
+            // Update Connected Mobile App Badge
+            if (data.connectedWsClients && data.connectedWsClients.length > 0) {
+                const client = data.connectedWsClients[0];
+                const dot = document.getElementById('app-dot');
+                const status = document.getElementById('app-status');
+                if (dot) dot.style.background = '#22c55e';
+                if (status) {
+                    status.innerText = `App: ${client.appName}`;
+                    status.title = `${client.platform} (${client.ip})`;
+                }
+            } else {
+                const dot = document.getElementById('app-dot');
+                const status = document.getElementById('app-status');
+                if (dot) dot.style.background = '#64748b';
+                if (status) {
+                    status.innerText = 'App: Waiting...';
+                    status.title = 'Waiting for React Native or Expo app on port 9090';
+                }
+            }
 
             if (data.recentLogs && data.recentLogs.length > 0) {
                 cachedLogs = data.recentLogs;

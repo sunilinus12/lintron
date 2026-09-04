@@ -6,6 +6,8 @@ const { Transform } = require('stream');
 
 const ADB_PATH = '/Users/linus/Library/Android/sdk/platform-tools/adb';
 const PROXY_PORT = 8080;
+const WS_PORT = 9090;
+const LintronWsServer = require('./ws-server');
 
 let mainWindow = null;
 let isBreakpointEnabled = false;
@@ -297,6 +299,48 @@ server.listen(PROXY_PORT, '0.0.0.0', () => {
     console.log(`[Proxy] Proxy server listening on 0.0.0.0:${PROXY_PORT}`);
 });
 
+const wsServer = new LintronWsServer({
+    port: WS_PORT,
+    onClientConnected: (clientInfo, ws) => {
+        wsServer.send(ws, {
+            type: 'INIT_STATE',
+            payload: {
+                profile: currentProfile,
+                isBreakpointEnabled,
+                isOfflineMode: isOfflineMode || isSystemInternetOff
+            }
+        });
+        if (mainWindow) {
+            mainWindow.webContents.send('ws-clients-updated', wsServer.getConnectedClients());
+        }
+    },
+    onClientDisconnected: (clientInfo) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('ws-clients-updated', wsServer.getConnectedClients());
+        }
+    },
+    onBreakpointIntercept: (bpPayload, clientInfo) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('breakpoint-intercepted', bpPayload);
+        }
+        logDetailedRequest(bpPayload, 'PAUSED (Breakpoint - App)');
+    },
+    onLogRequest: (logEntry, clientInfo) => {
+        logDetailedRequest(logEntry, logEntry.status || '200 OK');
+    }
+});
+
+wsServer.start();
+
+function broadcastProfile() {
+    if (wsServer) {
+        wsServer.broadcast({
+            type: 'SET_PROFILE',
+            payload: currentProfile
+        });
+    }
+}
+
 let fluctuationInterval = null;
 
 function setSystemNetworkState(online, deviceId = null) {
@@ -339,6 +383,7 @@ function startMetroFluctuation() {
             mode: p.name
         };
         logRequest('SUBWAY', p.name, `${Math.round(p.speed / 1024)}KB/s`, `${p.latency}ms`);
+        broadcastProfile();
         phaseIndex = (phaseIndex + 1) % phases.length;
     };
 
@@ -362,6 +407,7 @@ function startIntermittentBlackout(deviceId = null) {
             currentProfile = { speed: 0, latency: 9999, mode: 'OS Disconnected 🔴' };
             logRequest('NETWORK', 'OS_OFFLINE', 'Android NetworkCallback', 'AIRPLANE_MODE_ON');
         }
+        broadcastProfile();
     };
 
     online = false;
@@ -369,6 +415,7 @@ function startIntermittentBlackout(deviceId = null) {
     setSystemNetworkState(false, deviceId);
     currentProfile = { speed: 0, latency: 9999, mode: 'OS Disconnected 🔴' };
     logRequest('NETWORK', 'OS_OFFLINE', 'Android NetworkCallback', 'AIRPLANE_MODE_ON');
+    broadcastProfile();
     
     fluctuationInterval = setInterval(cycle, 6000);
 }
@@ -383,6 +430,7 @@ function startRandomFluctuation() {
             latency,
             mode: 'Fluctuating'
         };
+        broadcastProfile();
     };
     runRandom();
     fluctuationInterval = setInterval(runRandom, 3000);
@@ -459,6 +507,7 @@ if (ipcMain) {
             stopFluctuation(deviceId);
             isOfflineMode = true;
             currentProfile = { speed: 0, latency: 9999, mode: 'Internet OFF' };
+            broadcastProfile();
             const cmd = `${ADB_PATH} ${targetFlag} shell "cmd connectivity airplane-mode enable; svc wifi disable; svc data disable"`;
             return new Promise((resolve) => {
                 exec(cmd, (error) => {
@@ -468,6 +517,7 @@ if (ipcMain) {
         } else {
             isOfflineMode = false;
             currentProfile = { speed: 10000000, latency: 0, mode: 'Good' };
+            broadcastProfile();
             const cmd = `${ADB_PATH} ${targetFlag} shell "cmd connectivity airplane-mode disable; svc wifi enable; svc data enable"`;
             return new Promise((resolve) => {
                 exec(cmd, (error) => {
@@ -499,6 +549,12 @@ if (ipcMain) {
 
     ipcMain.handle('set-breakpoint-state', (event, enabled) => {
         isBreakpointEnabled = enabled;
+        if (wsServer) {
+            wsServer.broadcast({
+                type: 'SET_BREAKPOINT_ENABLED',
+                payload: { isBreakpointEnabled: enabled }
+            });
+        }
         return { success: true, isBreakpointEnabled };
     });
 
@@ -507,6 +563,9 @@ if (ipcMain) {
         const pending = pendingBreakpoints.get(id);
         if (pending) {
             pending.resolve({ action, modifiedBody });
+            return { success: true };
+        }
+        if (wsServer && wsServer.resolveBreakpoint(id, action, modifiedBody)) {
             return { success: true };
         }
         return { success: false, reason: 'Breakpoint not found' };
@@ -522,17 +581,21 @@ if (ipcMain) {
 
         if (profileName === 'Metro' || profileName === 'Subway') {
             startMetroFluctuation();
+            broadcastProfile();
             return { success: true, profile: currentProfile };
         } else if (profileName === 'Blackout' || profileName === 'Offline') {
             startIntermittentBlackout(deviceId);
+            broadcastProfile();
             return { success: true, profile: currentProfile };
         } else if (profileName === 'Fluctuating' || profileName === 'Fluctuation') {
             startRandomFluctuation();
+            broadcastProfile();
             return { success: true, profile: currentProfile };
         } else {
             stopFluctuation(deviceId);
             const p = PROFILES[payload];
             if (p) currentProfile = { ...p, mode: profileName };
+            broadcastProfile();
         }
         return { success: true, profile: currentProfile };
     });
@@ -542,7 +605,8 @@ if (ipcMain) {
             ...telemetry,
             currentProfile,
             isBreakpointEnabled,
-            pendingBreakpointsCount: pendingBreakpoints.size
+            pendingBreakpointsCount: pendingBreakpoints.size + (wsServer ? wsServer.pendingBreakpoints.size : 0),
+            connectedWsClients: wsServer ? wsServer.getConnectedClients() : []
         };
     });
 }

@@ -1,43 +1,16 @@
-/**
- * Lintron Client SDK
- * Next-Gen Network Debugger & Chaos Engineering Tool for React Native and Expo
- */
+import { LintronConfig, NetworkProfile, InterceptedRequest, BreakpointResolution, RequestLogEntry } from './types';
+import { networkEngine } from './throttler/network-engine';
+import { setupFetchInterceptor } from './interceptors/fetch';
 
-export interface LintronConfig {
-  /**
-   * Host address where Lintron Desktop is running.
-   * Defaults to 'localhost' (or '10.0.2.2' on Android Emulator).
-   */
-  host?: string;
-
-  /**
-   * WebSocket port used by Lintron Desktop.
-   * Defaults to 9090.
-   */
-  port?: number;
-
-  /**
-   * Application name to display in the Lintron dashboard.
-   */
-  appName?: string;
-
-  /**
-   * Whether to auto-connect on initialization.
-   * Defaults to true in __DEV__.
-   */
-  enabled?: boolean;
-}
-
-export interface NetworkProfile {
-  name: string;
-  speed: number; // in bytes per second
-  latency: number; // in milliseconds
-}
+export * from './types';
+export { networkEngine } from './throttler/network-engine';
 
 export class LintronClient {
   private config: LintronConfig;
   private ws: any = null;
   private isConnected: boolean = false;
+  private isBreakpointEnabled: boolean = false;
+  private pendingBreakpoints = new Map<string, (res: BreakpointResolution) => void>();
 
   constructor(config: LintronConfig = {}) {
     this.config = {
@@ -45,6 +18,7 @@ export class LintronClient {
       port: config.port || 9090,
       appName: config.appName || 'React Native App',
       enabled: config.enabled !== undefined ? config.enabled : true,
+      captureLogs: config.captureLogs !== undefined ? config.captureLogs : true,
     };
   }
 
@@ -52,13 +26,14 @@ export class LintronClient {
     if (!this.config.enabled) return;
 
     const url = `ws://${this.config.host}:${this.config.port}`;
-    console.log(`[Lintron] Connecting to Desktop Dashboard at ${url}...`);
+    console.log(`[Lintron] Connecting to Lintron Desktop at ${url}...`);
 
     try {
-      // Standard WebSocket in React Native environment
-      const SocketConstructor = (global as any).WebSocket;
+      const globalScope = typeof global !== 'undefined' ? (global as any) : (window as any);
+      const SocketConstructor = globalScope.WebSocket;
+
       if (!SocketConstructor) {
-        console.warn('[Lintron] WebSocket is not available in this environment.');
+        console.warn('[Lintron] WebSocket constructor not found in environment.');
         return;
       }
 
@@ -66,18 +41,18 @@ export class LintronClient {
 
       this.ws.onopen = () => {
         this.isConnected = true;
-        console.log('[Lintron] ⚡ Connected to Lintron Desktop');
+        console.log('[Lintron] ⚡ Connected to Lintron Desktop Dashboard');
         this.sendHandshake();
       };
 
       this.ws.onclose = () => {
         this.isConnected = false;
-        console.log('[Lintron] Disconnected from Lintron Desktop. Reconnecting in 3s...');
+        console.log('[Lintron] Disconnected from Desktop. Reconnecting in 3s...');
         setTimeout(() => this.connect(), 3000);
       };
 
       this.ws.onerror = (err: any) => {
-        console.warn('[Lintron] Connection error:', err?.message || err);
+        // Silent or debug log
       };
 
       this.ws.onmessage = (event: any) => {
@@ -89,12 +64,20 @@ export class LintronClient {
   }
 
   private sendHandshake(): void {
+    let platform = 'React Native';
+    try {
+      const globalScope = typeof global !== 'undefined' ? (global as any) : (window as any);
+      if (globalScope.expo) platform = 'Expo';
+      else if (globalScope.navigator?.product === 'ReactNative') platform = 'React Native Bare';
+    } catch (e) {}
+
     this.send({
       type: 'HANDSHAKE',
       payload: {
         appName: this.config.appName,
-        timestamp: Date.now(),
+        platform,
         clientVersion: '1.0.0',
+        timestamp: Date.now(),
       },
     });
   }
@@ -112,10 +95,69 @@ export class LintronClient {
   private handleMessage(raw: string): void {
     try {
       const data = JSON.parse(raw);
-      console.log('[Lintron] Received event:', data.type);
+      switch (data.type) {
+        case 'INIT_STATE': {
+          if (data.payload?.profile) {
+            networkEngine.setProfile(data.payload.profile);
+          }
+          if (data.payload?.isBreakpointEnabled !== undefined) {
+            this.isBreakpointEnabled = data.payload.isBreakpointEnabled;
+          }
+          if (data.payload?.isOfflineMode !== undefined) {
+            networkEngine.setOffline(data.payload.isOfflineMode);
+          }
+          break;
+        }
+
+        case 'SET_PROFILE': {
+          networkEngine.setProfile(data.payload);
+          break;
+        }
+
+        case 'SET_OFFLINE': {
+          networkEngine.setOffline(data.payload.isOffline);
+          break;
+        }
+
+        case 'SET_BREAKPOINT_ENABLED': {
+          this.isBreakpointEnabled = data.payload.isBreakpointEnabled;
+          break;
+        }
+
+        case 'BREAKPOINT_RESOLVED': {
+          const { id, action, modifiedBody } = data.payload;
+          const resolver = this.pendingBreakpoints.get(id);
+          if (resolver) {
+            resolver({ id, action, modifiedBody });
+            this.pendingBreakpoints.delete(id);
+          }
+          break;
+        }
+      }
     } catch (e) {
       console.warn('[Lintron] Could not parse message:', raw);
     }
+  }
+
+  public getIsBreakpointEnabled(): boolean {
+    return this.isBreakpointEnabled;
+  }
+
+  public requestBreakpointResolution(req: InterceptedRequest): Promise<BreakpointResolution> {
+    return new Promise((resolve) => {
+      this.pendingBreakpoints.set(req.id, resolve);
+      this.send({
+        type: 'BREAKPOINT_INTERCEPT',
+        payload: req,
+      });
+    });
+  }
+
+  public sendLogRequest(entry: RequestLogEntry): void {
+    this.send({
+      type: 'LOG_REQUEST',
+      payload: entry,
+    });
   }
 }
 
@@ -124,12 +166,12 @@ let defaultInstance: LintronClient | null = null;
 /**
  * Initializes Lintron in your React Native / Expo application.
  *
- * Usage:
+ * Example:
  * ```ts
  * import { initLintron } from 'lintron';
  *
  * if (__DEV__) {
- *   initLintron();
+ *   initLintron({ appName: 'My Awesome App' });
  * }
  * ```
  */
@@ -137,6 +179,7 @@ export function initLintron(config?: LintronConfig): LintronClient {
   if (!defaultInstance) {
     defaultInstance = new LintronClient(config);
     defaultInstance.connect();
+    setupFetchInterceptor(defaultInstance);
   }
   return defaultInstance;
 }
@@ -144,4 +187,5 @@ export function initLintron(config?: LintronConfig): LintronClient {
 export default {
   initLintron,
   LintronClient,
+  networkEngine,
 };
