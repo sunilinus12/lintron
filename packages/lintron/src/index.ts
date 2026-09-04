@@ -1,6 +1,7 @@
 import { LintronConfig, NetworkProfile, InterceptedRequest, BreakpointResolution, RequestLogEntry } from './types';
 import { networkEngine } from './throttler/network-engine';
 import { setupFetchInterceptor } from './interceptors/fetch';
+import { setupXhrInterceptor } from './interceptors/xhr';
 
 export * from './types';
 export { networkEngine } from './throttler/network-engine';
@@ -133,6 +134,13 @@ export class LintronClient {
           }
           break;
         }
+
+        case 'SET_PACKET_LOSS': {
+          if (data.payload?.rate !== undefined) {
+            networkEngine.setPacketLoss(data.payload.rate);
+          }
+          break;
+        }
       }
     } catch (e) {
       console.warn('[Lintron] Could not parse message:', raw);
@@ -180,6 +188,7 @@ export function initLintron(config?: LintronConfig): LintronClient {
     defaultInstance = new LintronClient(config);
     defaultInstance.connect();
     setupFetchInterceptor(defaultInstance);
+    setupXhrInterceptor(defaultInstance);
   }
   return defaultInstance;
 }

@@ -7,15 +7,21 @@ export class NetworkEngine {
     latency: 0,
   };
   private isOffline: boolean = false;
+  private packetLossRate: number = 0; // percentage 0 - 100
 
   public setProfile(profile: NetworkProfile): void {
     this.currentProfile = profile;
-    console.log(`[Lintron Engine] 🌐 Applied Profile: ${profile.name} (${Math.round(profile.speed / 1024)} KB/s, ${profile.latency}ms)`);
+    console.log(`[Lintron Engine] 🌐 Profile: ${profile.name} (${Math.round(profile.speed / 1024)} KB/s, ${profile.latency}ms)`);
   }
 
   public setOffline(offline: boolean): void {
     this.isOffline = offline;
     console.log(`[Lintron Engine] 🔴 Offline Mode: ${offline ? 'ACTIVE' : 'INACTIVE'}`);
+  }
+
+  public setPacketLoss(rate: number): void {
+    this.packetLossRate = Math.max(0, Math.min(100, rate));
+    console.log(`[Lintron Engine] ⚠️ Packet Loss Simulation: ${this.packetLossRate}%`);
   }
 
   public getProfile(): NetworkProfile {
@@ -28,11 +34,16 @@ export class NetworkEngine {
 
   /**
    * Applies artificial network delay based on current profile and payload size.
-   * Throws TypeError('Network request failed') if offline.
+   * Throws TypeError('Network request failed') if offline or packet dropped.
    */
   public async applyThrottling(payloadBytes: number = 1024): Promise<void> {
     if (this.isOffline || this.currentProfile.speed === 0) {
-      // Standard React Native offline error
+      throw new TypeError('Network request failed');
+    }
+
+    // Packet Loss Simulation
+    if (this.packetLossRate > 0 && Math.random() * 100 < this.packetLossRate) {
+      console.warn('[Lintron Engine] 💥 Simulated Packet Drop');
       throw new TypeError('Network request failed');
     }
 

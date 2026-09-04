@@ -701,6 +701,13 @@
                     </div>
                     <input type="range" id="custom-speed" min="10" max="20000" step="50" value="500" oninput="updateCustomValues()">
                 </div>
+                <div class="range-group">
+                    <div class="range-label">
+                        <span>Simulated Packet Drop Rate</span>
+                        <strong id="custom-loss-val">0% (Normal)</strong>
+                    </div>
+                    <input type="range" id="custom-loss" min="0" max="50" step="5" value="0" oninput="updateCustomValues()">
+                </div>
                 <button class="btn-profile active" style="margin-top: 4px; padding: 8px;" onclick="applyCustomProfile()">Apply Custom Settings</button>
             </div>
         </div>
@@ -977,8 +984,10 @@
         function updateCustomValues() {
             const lat = document.getElementById('custom-latency').value;
             const spd = document.getElementById('custom-speed').value;
+            const loss = document.getElementById('custom-loss').value;
             document.getElementById('custom-latency-val').innerText = `${lat} ms`;
             document.getElementById('custom-speed-val').innerText = `${spd} KB/s`;
+            document.getElementById('custom-loss-val').innerText = loss > 0 ? `${loss}% Drops` : '0% (Normal)';
         }
 
         async function applyCustomProfile() {
@@ -986,18 +995,22 @@
 
             const lat = parseInt(document.getElementById('custom-latency').value);
             const spdKbps = parseInt(document.getElementById('custom-speed').value);
+            const lossRate = parseInt(document.getElementById('custom-loss').value) || 0;
             const speedBytes = spdKbps * 1024;
+
+            await ipcRenderer.invoke('set-packet-loss', lossRate);
 
             const res = await ipcRenderer.invoke('update-profile', {
                 speed: speedBytes,
                 latency: lat,
-                mode: `Custom (${spdKbps} KB/s, ${lat}ms)`,
+                mode: `Custom (${spdKbps} KB/s, ${lat}ms, ${lossRate}% Loss)`,
                 deviceId: selectedDeviceId
             });
 
             if (res.success) {
-                document.getElementById('active-profile-info').innerText = `Custom (${spdKbps} KB/s, ${lat}ms)`;
+                document.getElementById('active-profile-info').innerText = `Custom (${spdKbps} KB/s, ${lat}ms, ${lossRate}% Loss)`;
                 document.querySelectorAll('.btn-profile').forEach(btn => btn.classList.remove('active'));
+                showToast(`Applied Custom Profile (${lossRate}% Drop Rate)`);
             }
         }
 

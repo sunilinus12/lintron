@@ -600,6 +600,16 @@ if (ipcMain) {
         return { success: true, profile: currentProfile };
     });
 
+    ipcMain.handle('set-packet-loss', (event, rate) => {
+        if (wsServer) {
+            wsServer.broadcast({
+                type: 'SET_PACKET_LOSS',
+                payload: { rate: Number(rate) || 0 }
+            });
+        }
+        return { success: true, rate: Number(rate) || 0 };
+    });
+
     ipcMain.handle('get-telemetry', async () => {
         return {
             ...telemetry,
