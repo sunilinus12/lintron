@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+out/
+
+# Environment and secrets
+.env
+.env.local
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
