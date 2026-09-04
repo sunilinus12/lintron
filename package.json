@@ -1,0 +1,26 @@
+{
+  "name": "lintron-throttler",
+  "version": "1.0.0",
+  "description": "⚡ Precision Network Conditioning & Chaos Simulation Desktop Tool for Mobile & Web Developers",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --debug"
+  },
+  "keywords": [
+    "network-throttler",
+    "network-conditioner",
+    "latency-simulator",
+    "packet-loss",
+    "chaos-engineering",
+    "mobile-testing",
+    "react-native",
+    "android-adb",
+    "electron"
+  ],
+  "author": "Linus",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.7.7"
+  }
+}

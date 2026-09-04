@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinTron Throttler</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Titlebar -->
+        <header class="titlebar">
+            <div class="titlebar-drag"></div>
+            <div class="brand">
+                <div class="logo-icon">⚡</div>
+                <div class="brand-text">
+                    <span class="brand-title">LinTron <span class="accent-badge">THROTTLER</span></span>
+                    <span class="brand-subtitle">Precision Network Conditioner & Chaos Engine</span>
+                </div>
+            </div>
+
+            <div class="header-status">
+                <div class="proxy-pill">
+                    <span class="pulse-dot active" id="proxy-pulse"></span>
+                    <span class="proxy-label">PROXY PORT:</span>
+                    <span class="proxy-val" id="proxy-address">0.0.0.0:8080</span>
+                </div>
+                <div class="lan-pill" title="Set this as HTTP proxy on your phone or emulator">
+                    <span class="lan-label">LAN IP:</span>
+                    <span class="lan-val" id="lan-ip">Detecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Body -->
+        <main class="main-content">
+            <!-- Left Column: Conditioning Engine & Controls -->
+            <section class="left-pane">
+                <!-- Presets Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📡 Network Presets</span>
+                        <span class="active-badge" id="active-profile-name">⚡ No Throttling</span>
+                    </div>
+
+                    <div class="preset-grid">
+                        <button class="preset-btn active" data-preset="good">
+                            <span class="preset-icon">⚡</span>
+                            <span class="preset-name">Direct / Good</span>
+                            <span class="preset-specs">Unthrottled · 0ms</span>
+                        </button>
+                        <button class="preset-btn" data-preset="5g">
+                            <span class="preset-icon">🚀</span>
+                            <span class="preset-name">5G Ultra</span>
+                            <span class="preset-specs">150 Mbps · 15ms</span>
+                        </button>
+                        <button class="preset-btn" data-preset="4g">
+                            <span class="preset-icon">📶</span>
+                            <span class="preset-name">4G LTE</span>
+                            <span class="preset-specs">25 Mbps · 40ms</span>
+                        </button>
+                        <button class="preset-btn" data-preset="3g">
+                            <span class="preset-icon">📉</span>
+                            <span class="preset-name">3G HSPA</span>
+                            <span class="preset-specs">1.5 Mbps · 150ms</span>
+                        </button>
+                        <button class="preset-btn" data-preset="2g">
+                            <span class="preset-icon">🐢</span>
+                            <span class="preset-name">2G Edge</span>
+                            <span class="preset-specs">250 Kbps · 400ms</span>
+                        </button>
+                        <button class="preset-btn" data-preset="1g">
+                            <span class="preset-icon">🐌</span>
+                            <span class="preset-name">1G GPRS</span>
+                            <span class="preset-specs">10 Kbps · 1000ms</span>
+                        </button>
+                        <button class="preset-btn warning-preset" data-preset="subway">
+                            <span class="preset-icon">🚇</span>
+                            <span class="preset-name">Subway / Tunnel</span>
+                            <span class="preset-specs">Intermittent Disconnects</span>
+                        </button>
+                        <button class="preset-btn danger-preset" data-preset="packet-loss">
+                            <span class="preset-icon">⚠️</span>
+                            <span class="preset-name">High Packet Loss</span>
+                            <span class="preset-specs">25% Drop · 200ms Jitter</span>
+                        </button>
+                        <button class="preset-btn killswitch-preset" data-preset="offline">
+                            <span class="preset-icon">🛑</span>
+                            <span class="preset-name">Offline Mode</span>
+                            <span class="preset-specs">100% Drop / Blackout</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Custom Precision Sliders -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🎛️ Precision Conditioning Sliders</span>
+                        <button class="text-btn" id="btn-reset-sliders">Reset to Default</button>
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Download Speed Limit</label>
+                            <span class="slider-value" id="val-speed">Unlimited</span>
+                        </div>
+                        <input type="range" id="slider-speed" min="10" max="10000" step="10" value="10000">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Added Latency (RTT)</label>
+                            <span class="slider-value" id="val-latency">0 ms</span>
+                        </div>
+                        <input type="range" id="slider-latency" min="0" max="3000" step="25" value="0">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Random Packet Loss</label>
+                            <span class="slider-value" id="val-packet-loss">0 %</span>
+                        </div>
+                        <input type="range" id="slider-packet-loss" min="0" max="100" step="1" value="0">
+                    </div>
+
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <label>Latency Jitter</label>
+                            <span class="slider-value" id="val-jitter">0 ms</span>
+                        </div>
+                        <input type="range" id="slider-jitter" min="0" max="500" step="10" value="0">
+                    </div>
+                </div>
+
+                <!-- 1-Click ADB Automation Card -->
+                <div class="card adb-card">
+                    <div class="card-header">
+                        <div class="adb-title-row">
+                            <span class="card-title">🤖 1-Click Android ADB Bridge</span>
+                            <span class="adb-device-tag" id="adb-device-badge">Checking ADB...</span>
+                        </div>
+                    </div>
+
+                    <p class="card-desc">Automatically routes all phone network traffic through this throttler via ADB command without opening Android Wi-Fi settings.</p>
+
+                    <div class="adb-actions">
+                        <button class="btn btn-primary" id="btn-enable-adb">
+                            <span class="btn-icon">⚡</span> Set Android Proxy
+                        </button>
+                        <button class="btn btn-secondary" id="btn-disable-adb">
+                            <span class="btn-icon">❌</span> Clear Proxy
+                        </button>
+                        <button class="btn btn-ghost" id="btn-refresh-adb" title="Refresh ADB devices">
+                            🔄
+                        </button>
+                    </div>
+
+                    <div class="adb-status-bar" id="adb-status-msg">
+                        Ready to connect
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Live Telemetry & Traffic Stream -->
+            <section class="right-pane">
+                <!-- Speedometer / Bandwidth Stats -->
+                <div class="telemetry-bar">
+                    <div class="stat-box">
+                        <span class="stat-label">CURRENT DOWNLOAD</span>
+                        <div class="stat-val-row">
+                            <span class="stat-num" id="stat-down">0</span>
+                            <span class="stat-unit">KB/s</span>
+                        </div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">CURRENT UPLOAD</span>
+                        <div class="stat-val-row">
+                            <span class="stat-num" id="stat-up">0</span>
+                            <span class="stat-unit">KB/s</span>
+                        </div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">ACTIVE SOCKETS</span>
+                        <div class="stat-val-row">
+                            <span class="stat-num stat-accent" id="stat-sockets">0</span>
+                        </div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">TOTAL REQUESTS</span>
+                        <div class="stat-val-row">
+                            <span class="stat-num" id="stat-total-req">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Traffic Log Table -->
+                <div class="card traffic-card">
+                    <div class="card-header">
+                        <div class="traffic-header-left">
+                            <span class="card-title">🌊 Live Request Stream</span>
+                            <span class="pulse-dot stream-dot"></span>
+                        </div>
+                        <button class="btn btn-sm btn-ghost" id="btn-clear-traffic">Clear Log</button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="traffic-table">
+                            <thead>
+                                <tr>
+                                    <th>TIME</th>
+                                    <th>METHOD</th>
+                                    <th>HOST</th>
+                                    <th>PORT</th>
+                                    <th>TYPE</th>
+                                    <th>DELAY</th>
+                                    <th>STATUS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="traffic-tbody">
+                                <tr class="empty-row">
+                                    <td colspan="7">No network requests captured yet. Connect device to proxy port 8080.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
