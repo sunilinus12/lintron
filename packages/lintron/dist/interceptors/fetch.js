@@ -1,0 +1,175 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.setupFetchInterceptor = setupFetchInterceptor;
+const network_engine_1 = require("../throttler/network-engine");
+let isInterceptorActive = false;
+let originalFetch = null;
+function setupFetchInterceptor(client) {
+    if (isInterceptorActive)
+        return;
+    const globalScope = typeof global !== 'undefined' ? global : window;
+    if (!globalScope.fetch) {
+        console.warn('[Lintron] fetch is not defined in global scope.');
+        return;
+    }
+    originalFetch = globalScope.fetch.bind(globalScope);
+    isInterceptorActive = true;
+    globalScope.fetch = async function lintronFetch(input, init) {
+        const startTime = Date.now();
+        let url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+        let method = (init?.method || (typeof input === 'object' && 'method' in input ? input.method : 'GET')).toUpperCase();
+        // Extract headers
+        const headers = {};
+        if (init?.headers) {
+            if (typeof init.headers.forEach === 'function') {
+                init.headers.forEach((value, key) => {
+                    headers[key] = value;
+                });
+            }
+            else if (Array.isArray(init.headers)) {
+                init.headers.forEach(([k, v]) => { headers[k] = v; });
+            }
+            else {
+                Object.assign(headers, init.headers);
+            }
+        }
+        let bodyStr = undefined;
+        if (init?.body) {
+            if (typeof init.body === 'string') {
+                bodyStr = init.body;
+            }
+            else {
+                try {
+                    bodyStr = JSON.stringify(init.body);
+                }
+                catch (e) {
+                    bodyStr = '[Binary/FormData Body]';
+                }
+            }
+        }
+        // Generate cURL command
+        let curl = `curl -X ${method} "${url}"`;
+        for (const [k, v] of Object.entries(headers)) {
+            curl += ` \\\n  -H "${k}: ${v}"`;
+        }
+        if (bodyStr) {
+            const escapedBody = bodyStr.replace(/'/g, "'\\''");
+            curl += ` \\\n  --data-raw '${escapedBody}'`;
+        }
+        // Check Breakpoints
+        if (client.shouldIntercept(method, url)) {
+            const bpId = `bp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            const bpResolution = await client.requestBreakpointResolution({
+                id: bpId,
+                method,
+                url,
+                headers,
+                body: bodyStr,
+                time: new Date().toLocaleTimeString(),
+            });
+            if (bpResolution.action === 'abort') {
+                throw new TypeError('Network request aborted by Lintron Breakpoint');
+            }
+            if (bpResolution.action === 'mock') {
+                const mockStatus = bpResolution.mockStatus || 200;
+                const mockBody = bpResolution.mockBody || '{}';
+                const mockHeaders = new Headers({
+                    'content-type': 'application/json',
+                    'x-powered-by': 'Lintron-Mock',
+                });
+                const mockResponse = new Response(mockBody, {
+                    status: mockStatus,
+                    statusText: mockStatus === 200 ? 'OK' : 'Mocked Response',
+                    headers: mockHeaders,
+                });
+                const logEntry = {
+                    id: bpId,
+                    time: new Date().toLocaleTimeString(),
+                    method,
+                    url,
+                    host: 'mocked',
+                    port: 0,
+                    status: `${mockStatus} Mocked by Lintron`,
+                    statusCode: mockStatus,
+                    headers,
+                    body: bodyStr,
+                    responseBody: mockBody,
+                    curl,
+                    durationMs: Date.now() - startTime,
+                    sizeBytes: mockBody.length,
+                };
+                client.sendLogRequest(logEntry);
+                return mockResponse;
+            }
+            if (bpResolution.action === 'forward' && bpResolution.modifiedBody !== undefined) {
+                bodyStr = bpResolution.modifiedBody;
+                if (init)
+                    init.body = bodyStr;
+            }
+        }
+        // Apply Throttling (latency + offline simulation)
+        await network_engine_1.networkEngine.applyThrottling(bodyStr ? bodyStr.length : 512);
+        try {
+            const response = await originalFetch(input, init);
+            const durationMs = Date.now() - startTime;
+            let host = '';
+            let port = 443;
+            try {
+                const parsedUrl = new URL(url);
+                host = parsedUrl.hostname;
+                port = parseInt(parsedUrl.port) || (parsedUrl.protocol === 'https:' ? 443 : 80);
+            }
+            catch (e) {
+                host = 'unknown-host';
+            }
+            // Read response clone for size
+            let sizeBytes = 1024;
+            try {
+                const clone = response.clone();
+                const text = await clone.text();
+                sizeBytes = text.length;
+            }
+            catch (e) { }
+            // Apply downlink throttling based on response size
+            await network_engine_1.networkEngine.applyThrottling(sizeBytes);
+            const logEntry = {
+                id: `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                time: new Date().toLocaleTimeString(),
+                method,
+                url,
+                host,
+                port,
+                status: `${response.status} ${response.statusText || 'OK'}`,
+                statusCode: response.status,
+                headers,
+                body: bodyStr,
+                curl,
+                durationMs,
+                sizeBytes,
+            };
+            client.sendLogRequest(logEntry);
+            return response;
+        }
+        catch (error) {
+            const durationMs = Date.now() - startTime;
+            const logEntry = {
+                id: `req_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                time: new Date().toLocaleTimeString(),
+                method,
+                url,
+                host: 'error',
+                port: 0,
+                status: error?.message || 'FAILED',
+                headers,
+                body: bodyStr,
+                curl,
+                durationMs,
+                sizeBytes: 0,
+            };
+            client.sendLogRequest(logEntry);
+            throw error;
+        }
+    };
+    console.log('[Lintron] 🚀 Fetch Interceptor initialized');
+}
+//# sourceMappingURL=fetch.js.map
