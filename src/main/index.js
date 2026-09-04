@@ -86,6 +86,10 @@ ipcMain.handle('get-adb-proxy-status', async () => {
     return await adbManager.getProxyStatus();
 });
 
+ipcMain.handle('set-device-offline', async (event, enable) => {
+    return await adbManager.setDeviceOffline(enable);
+});
+
 ipcMain.handle('set-profile', (event, profile) => {
     proxyServer.setProfile(profile);
     return { success: true, profile: proxyServer.currentProfile };
@@ -94,3 +98,4 @@ ipcMain.handle('set-profile', (event, profile) => {
 ipcMain.handle('get-profile', () => {
     return proxyServer.currentProfile;
 });
+

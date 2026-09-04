@@ -88,6 +88,9 @@ class LinTronProxyServer extends EventEmitter {
             packetLoss: 0       // 0%
         };
 
+        // Active Sockets Set for hard severance
+        this.activeSockets = new Set();
+
         // Telemetry
         this.telemetry = {
             activeConnections: 0,
@@ -109,6 +112,19 @@ class LinTronProxyServer extends EventEmitter {
 
     setProfile(profile) {
         this.currentProfile = { ...this.currentProfile, ...profile };
+
+        // Instant Hard Severance on Offline Mode
+        if (this.currentProfile.mode === 'Offline' || this.currentProfile.speed === 0) {
+            console.log(`[LinTron Proxy] 🛑 OFFLINE MODE ACTIVE: Dropping ${this.activeSockets.size} active socket(s)`);
+            for (const socket of this.activeSockets) {
+                try {
+                    socket.destroy();
+                } catch (e) {}
+            }
+            this.activeSockets.clear();
+            this.telemetry.activeConnections = 0;
+        }
+
         this.emit('profile-changed', this.currentProfile);
     }
 
@@ -160,6 +176,19 @@ class LinTronProxyServer extends EventEmitter {
                 this.handleHttpRequest(clientReq, clientRes);
             });
 
+            // Track incoming TCP sockets and instantly drop if offline
+            this.server.on('connection', (socket) => {
+                this.activeSockets.add(socket);
+                socket.on('close', () => {
+                    this.activeSockets.delete(socket);
+                });
+
+                if (this.currentProfile.mode === 'Offline' || this.currentProfile.speed === 0) {
+                    this.logRequest('TCP', 'CLIENT', this.port, 'TCP', '🛑 DROPPED (No Internet)');
+                    socket.destroy();
+                }
+            });
+
             // Handle HTTPS CONNECT tunnel
             this.server.on('connect', (req, clientSocket, head) => {
                 this.handleHttpsConnect(req, clientSocket, head);
@@ -178,11 +207,18 @@ class LinTronProxyServer extends EventEmitter {
     }
 
     handleHttpRequest(clientReq, clientRes) {
-        this.telemetry.activeConnections++;
         const parsedUrl = url.parse(clientReq.url);
-        const host = parsedUrl.hostname || clientReq.headers.host;
+        const host = parsedUrl.hostname || clientReq.headers.host || 'unknown';
         const port = parsedUrl.port || 80;
 
+        // Hard Drop on Offline Mode: No response, immediate socket destruction
+        if (this.currentProfile.mode === 'Offline' || this.currentProfile.speed === 0) {
+            this.logRequest(clientReq.method, host, port, 'HTTP', '🛑 DROPPED (No Internet)');
+            clientReq.socket.destroy();
+            return;
+        }
+
+        this.telemetry.activeConnections++;
         this.logRequest(clientReq.method, host, port, 'HTTP', 'Streaming');
 
         const options = {
@@ -225,10 +261,17 @@ class LinTronProxyServer extends EventEmitter {
     }
 
     handleHttpsConnect(req, clientSocket, head) {
-        this.telemetry.activeConnections++;
         const [host, port] = req.url.split(':');
         const targetPort = parseInt(port, 10) || 443;
 
+        // Hard Drop on Offline Mode: No response, immediate socket destruction
+        if (this.currentProfile.mode === 'Offline' || this.currentProfile.speed === 0) {
+            this.logRequest('CONNECT', host, targetPort, 'HTTPS', '🛑 DROPPED (No Internet)');
+            clientSocket.destroy();
+            return;
+        }
+
+        this.telemetry.activeConnections++;
         this.logRequest('CONNECT', host, targetPort, 'HTTPS', 'Tunneling');
 
         const serverSocket = net.connect(targetPort, host, () => {

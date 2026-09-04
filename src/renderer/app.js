@@ -162,6 +162,14 @@ function selectPreset(key) {
 
     // Send profile to main process proxy
     ipcRenderer.invoke('set-profile', currentProfile);
+
+    if (key === 'offline') {
+        adbStatusMsg.textContent = '🛑 OFFLINE MODE: All connections severed (ERR_INTERNET_DISCONNECTED)';
+        adbStatusMsg.style.color = '#ff3366';
+    } else {
+        adbStatusMsg.textContent = `🟢 Active Preset: ${currentProfile.name}`;
+        adbStatusMsg.style.color = '#00e676';
+    }
 }
 
 function updateSlidersFromProfile(profile) {

@@ -125,6 +125,18 @@ class AdbManager {
         this.isProxyActiveOnDevice = false;
         return { active: false, value: null };
     }
+
+    async setDeviceOffline(enable) {
+        const device = this.connectedDevice;
+        const target = device ? `-s ${device.id}` : '';
+        if (enable) {
+            await this.execCommand(`${target} shell "cmd connectivity airplane-mode enable; svc wifi disable; svc data disable"`);
+            return { success: true, message: 'Android Wi-Fi & Data disabled' };
+        } else {
+            await this.execCommand(`${target} shell "cmd connectivity airplane-mode disable; svc wifi enable; svc data enable"`);
+            return { success: true, message: 'Android Wi-Fi & Data restored' };
+        }
+    }
 }
 
 module.exports = AdbManager;
