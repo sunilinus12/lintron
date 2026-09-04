@@ -7,8 +7,15 @@
     "apps/*"
   ],
   "scripts": {
-    "start:desktop": "npm start --prefix apps/desktop",
+    "start:desktop": "electron apps/desktop",
+    "start": "electron apps/desktop",
     "build:lintron": "npm run build --workspace=packages/lintron",
     "test": "echo \"Lintron Monorepo Ready\" && exit 0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7"
   }
 }
